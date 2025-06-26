@@ -596,20 +596,27 @@ const App = () => {
                         </button>
                     </div>
                     <div className="flex-grow overflow-y-auto space-y-2">
-                        {boards.map(board => (
-                            <div key={board.id} onClick={() => handleBoardChange(board.id)} className={`group p-2 rounded-md cursor-pointer transition-colors ${activeBoardId === board.id ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>
-                                <div className="flex justify-between items-center">
-                                    <span className="font-semibold">{board.name}</span>
-                                    <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded-full">
-                                        {board.lists.reduce((total, list) => total + list.cards.length, 0)}词
-                                    </span>
+                        {boards.map(board => {
+                            // 计算单词总数
+                            const wordCount = board.lists.reduce((total, list) => total + list.cards.length, 0);
+                            // 确保这些样式类在生产环境中不会被优化掉
+                            const countLabelClasses = "text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded-full";
+                            
+                            return (
+                                <div key={board.id} onClick={() => handleBoardChange(board.id)} className={`group p-2 rounded-md cursor-pointer transition-colors ${activeBoardId === board.id ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-semibold">{board.name}</span>
+                                        <span className={countLabelClasses}>
+                                            {wordCount}词
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={(e) => { e.stopPropagation(); handleRenameBoard(board.id, board.name); }} className="text-xs text-gray-400 hover:text-white">重命名</button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board.id); }} className="text-xs text-red-500 hover:text-red-400">删除</button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center space-x-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={(e) => { e.stopPropagation(); handleRenameBoard(board.id, board.name); }} className="text-xs text-gray-400 hover:text-white">重命名</button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board.id); }} className="text-xs text-red-500 hover:text-red-400">删除</button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     <div className="mt-4 space-y-2">
                         <button onClick={() => setIsModalOpen(true)} className="w-full p-2 bg-blue-600 rounded-md hover:bg-blue-500 transition-colors font-semibold">

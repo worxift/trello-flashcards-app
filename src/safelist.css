@@ -8,6 +8,17 @@ Tailwind在生产环境构建时会进行"摇树优化"(tree-shaking)，
 .ring-2 {}
 .ring-blue-500 {}
 
+/* 看板单词数量标签相关类 */
+.text-xs {}
+.text-gray-400 {}
+.bg-gray-700 {}
+.px-2 {}
+.py-0\.5 {}
+.rounded-full {}
+.flex {}
+.justify-between {}
+.items-center {}
+
 /* 其他可能需要保留的重要类 */
 .bg-gray-600 {}
 .bg-gray-700 {}
