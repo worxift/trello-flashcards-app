@@ -282,9 +282,27 @@ const App = () => {
     const loadData = (data) => {
         if (!data) {
             // 创建默认数据
-            const defaultBoard = createNewBoardStructure('我的第一个看板', [
-                {id: generateId(), word: 'Welcome', definition: '欢迎使用!'},
-                {id: generateId(), word: '你好', definition: 'Hello'},
+            const defaultBoard = createNewBoardStructure('Oxford 3000', [
+                {id: generateId(), word: 'ability', definition: '能力'},
+                {id: generateId(), word: 'able', definition: '能够的'},
+                {id: generateId(), word: 'about', definition: '关于'},
+                {id: generateId(), word: 'above', definition: '在...之上'},
+                {id: generateId(), word: 'accept', definition: '接受'},
+                {id: generateId(), word: 'according to', definition: '根据'},
+                {id: generateId(), word: 'account', definition: '账户；说明'},
+                {id: generateId(), word: 'across', definition: '穿过；横过'},
+                {id: generateId(), word: 'act', definition: '行动；表演；法令'},
+                {id: generateId(), word: 'action', definition: '行动；动作'},
+                {id: generateId(), word: 'activity', definition: '活动'},
+                {id: generateId(), word: 'actually', definition: '实际上'},
+                {id: generateId(), word: 'add', definition: '添加；增加'},
+                {id: generateId(), word: 'address', definition: '地址；演讲'},
+                {id: generateId(), word: 'administration', definition: '管理；行政'},
+                {id: generateId(), word: 'admit', definition: '承认；准许进入'},
+                {id: generateId(), word: 'adult', definition: '成年人'},
+                {id: generateId(), word: 'affect', definition: '影响；感动'},
+                {id: generateId(), word: 'after', definition: '在...之后'},
+                {id: generateId(), word: 'again', definition: '再次；又'},
             ]);
             setBoards([defaultBoard]);
             setActiveBoardId(defaultBoard.id);
@@ -588,9 +606,54 @@ const App = () => {
                             </div>
                         ))}
                     </div>
-                    <button onClick={() => setIsModalOpen(true)} className="w-full mt-4 p-2 bg-blue-600 rounded-md hover:bg-blue-500 transition-colors font-semibold">
-                        + 创建新看板
-                    </button>
+                    <div className="mt-4 space-y-2">
+                        <button onClick={() => setIsModalOpen(true)} className="w-full p-2 bg-blue-600 rounded-md hover:bg-blue-500 transition-colors font-semibold">
+                            + 创建新看板
+                        </button>
+                        <button 
+                            onClick={() => {
+                                fetch('/oxford3000.txt')
+                                    .then(response => response.text())
+                                    .then(text => {
+                                        const lines = text.split('\n').filter(line => line.trim());
+                                        const cards = lines.map(line => {
+                                            const parts = line.split(' ');
+                                            if (parts.length >= 2) {
+                                                const word = parts[0];
+                                                const definition = parts.slice(1).join(' ');
+                                                return { id: generateId(), word, definition };
+                                            }
+                                            return null;
+                                        }).filter(Boolean);
+                                        
+                                        if (cards.length > 0) {
+                                            const newBoard = createNewBoardStructure('Oxford 3000', cards);
+                                            const newBoards = [...boards, newBoard];
+                                            setBoards(newBoards);
+                                            setActiveBoardId(newBoard.id);
+                                            
+                                            // 确保保存到本地
+                                            const dataToSave = { 
+                                                boards: newBoards, 
+                                                activeBoardId: newBoard.id,
+                                                dailyGoal, 
+                                                dailyProgress,
+                                                lastUpdated: new Date().toISOString()
+                                            };
+                                            saveToLocalStorage(dataToSave);
+                                            alert(`成功导入 ${cards.length} 个Oxford 3000词汇！`);
+                                        }
+                                    })
+                                    .catch(err => {
+                                        console.error('导入Oxford 3000词汇失败:', err);
+                                        alert('导入失败，请稍后再试');
+                                    });
+                            }}
+                            className="w-full p-2 bg-green-600 rounded-md hover:bg-green-500 transition-colors font-semibold"
+                        >
+                            导入 Oxford 3000 词汇
+                        </button>
+                    </div>
                 </aside>
 
                 <main className="flex-grow flex flex-col overflow-x-auto">
