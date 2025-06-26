@@ -3,7 +3,7 @@ import React from 'react';
 // Firebase Imports
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 // --- Helper Functions & Initial Config ---
 
@@ -19,7 +19,7 @@ const firebaseConfig = {
 };
 
 // Use a consistent app ID for local storage fallback
-const appId = 'trello-flashcards-app';
+const appId = 'trello-flashcards-app-public';
 
 // Custom unique ID generator
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -194,7 +194,7 @@ const ListProgressBar = ({ activeList, initialCount }) => {
     if (!activeList) return <div className="h-[68px]"></div>;
     
     const currentCount = activeList.cards.length;
-    const clearedCount = initialCount - currentCount;
+    const clearedCount = Math.max(0, initialCount - currentCount);
     const progress = initialCount > 0 ? (clearedCount / initialCount) * 100 : 0;
 
     return (
@@ -222,28 +222,21 @@ const App = () => {
     const [dailyProgress, setDailyProgress] = React.useState({ count: 0, date: getTodayDateString() });
     const [activeListForProgress, setActiveListForProgress] = React.useState(null);
     const [db, setDb] = React.useState(null);
-    const [userId, setUserId] = React.useState(null);
-    const [isAuthReady, setIsAuthReady] = React.useState(false);
+    const [isReady, setIsReady] = React.useState(false);
     
     React.useEffect(() => {
         try {
             const app = initializeApp(firebaseConfig);
             const firestore = getFirestore(app);
-            const authInstance = getAuth(app);
             setDb(firestore);
-
-            const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
-                if (user) {
-                    setUserId(user.uid);
-                    setIsAuthReady(true);
-                } else {
-                     await signInAnonymously(authInstance);
-                }
+            // We still sign in anonymously to fulfill security rules if they require auth
+            const auth = getAuth(app);
+            signInAnonymously(auth).catch(error => {
+                console.error("Anonymous sign-in failed:", error);
             });
-            return () => unsubscribe();
         } catch (error) {
-            console.error("Firebase initialization error, falling back to local mode:", error);
-            setIsAuthReady(true);
+            console.error("Firebase initialization error:", error);
+            setIsReady(true); // Allow local mode if firebase fails
         }
     }, []);
 
@@ -276,19 +269,8 @@ const App = () => {
     }
 
     React.useEffect(() => {
-        if (!isAuthReady) return;
-
-        if (db && userId) {
-            const docRef = doc(db, `users/${userId}/${appId}/data`);
-            const unsubscribe = onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    loadData(docSnap.data());
-                } else {
-                    loadData({});
-                }
-            });
-            return () => unsubscribe();
-        } else {
+        if (!db) {
+            // Fallback to local storage if db isn't initialized
             try {
                 const localData = localStorage.getItem(appId);
                 loadData(localData ? JSON.parse(localData) : {});
@@ -296,21 +278,40 @@ const App = () => {
                 console.error("Failed to load from local storage", e);
                 loadData({});
             }
-        }
-    }, [isAuthReady, db, userId]);
+            setIsReady(true);
+            return;
+        };
+
+        // This is the new path for the public board
+        const docRef = doc(db, 'public-boards', 'shared-board-data');
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                loadData(docSnap.data());
+            } else {
+                console.log("No public data in Firestore. Initializing.");
+                loadData({});
+            }
+            setIsReady(true); 
+        }, (error) => {
+            console.error("Firestore onSnapshot error:", error);
+            setIsReady(true);
+        });
+
+        return () => unsubscribe();
+    }, [db]);
 
      React.useEffect(() => {
-        if (!isAuthReady) return; 
+        if (!isReady) return; 
 
         const dataToSave = { boards, activeBoardId, dailyGoal, dailyProgress };
 
-        if (db && userId) {
-            const docRef = doc(db, `users/${userId}/${appId}/data`);
+        if (db) {
+            const docRef = doc(db, 'public-boards', 'shared-board-data');
             setDoc(docRef, dataToSave, { merge: true }).catch(e => console.error("Error saving data:", e));
         } else {
             localStorage.setItem(appId, JSON.stringify(dataToSave));
         }
-    }, [boards, activeBoardId, dailyGoal, dailyProgress, isAuthReady, db, userId]);
+    }, [boards, activeBoardId, dailyGoal, dailyProgress, isReady, db]);
 
     const incrementProgress = () => {
         setDailyProgress(prev => {
@@ -458,8 +459,8 @@ const App = () => {
     const selectedCard = activeBoard?.lists.flatMap(l => l.cards).find(c => c.id === selectedCardId);
     const activeListForProgressBar = activeBoard?.lists.find(l => l.id === activeListForProgress?.listId);
 
-    if (!isAuthReady) {
-        return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">正在加载...</div>;
+    if (!isReady) {
+        return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">正在连接公共看板...</div>;
     }
 
     return (
@@ -493,7 +494,6 @@ const App = () => {
                     <button onClick={() => setIsModalOpen(true)} className="w-full mt-4 p-2 bg-blue-600 rounded-md hover:bg-blue-500 transition-colors font-semibold">
                         + 创建新看板
                     </button>
-                     {userId && <div className="text-center text-xs text-gray-500 mt-4 break-all" title={userId}>用户ID: {userId}</div>}
                 </aside>
 
                 <main className="flex-grow flex flex-col overflow-x-auto">
