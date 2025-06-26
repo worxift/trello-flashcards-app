@@ -121,9 +121,12 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
         }
     };
 
+    // 确保这些类在生产环境中不会被优化掉
+    const ringClasses = "ring-2 ring-blue-500";
+    
     if (isArchived) {
         return (
-            <div draggable="true" onDragStart={onDragStart} onClick={() => setIsExpanded(!isExpanded)} className={`p-2 rounded-md bg-gray-600 text-sm cursor-pointer ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+            <div draggable="true" onDragStart={onDragStart} onClick={() => setIsExpanded(!isExpanded)} className={`p-2 rounded-md bg-gray-600 text-sm cursor-pointer ${isSelected ? ringClasses : ''}`}>
                 {isExpanded ? (
                     <><p className="font-semibold">{card.word}</p><p className="text-xs text-gray-400 mt-1">{card.definition}</p></>
                 ) : (
@@ -134,7 +137,7 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
     }
 
     return (
-        <div draggable="true" onDragStart={onDragStart} className={`p-3 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors cursor-grab ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+        <div draggable="true" onDragStart={onDragStart} className={`p-3 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors cursor-grab ${isSelected ? ringClasses : ''}`}>
             <p className="font-semibold text-base text-gray-100">{card.word}</p>
         </div>
     );
