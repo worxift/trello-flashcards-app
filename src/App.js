@@ -18,8 +18,10 @@ const firebaseConfig = {
   measurementId: "G-7L146V8XMS"
 };
 
-// Use a consistent app ID for local storage fallback
-const appId = 'trello-flashcards-app-public';
+// 本地存储键名定义
+const LOCAL_STORAGE_KEY = 'trello-flashcards-data';
+const STORAGE_TYPE_KEY = 'trello-flashcards-storage-type';
+const defaultStorageType = 'local'; // 默认使用本地存储
 
 // Custom unique ID generator
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -223,27 +225,79 @@ const App = () => {
     const [activeListForProgress, setActiveListForProgress] = React.useState(null);
     const [db, setDb] = React.useState(null);
     const [isReady, setIsReady] = React.useState(false);
+    const [storageType, setStorageType] = React.useState(() => {
+        // 在组件初始化时读取存储类型
+        return localStorage.getItem(STORAGE_TYPE_KEY) || defaultStorageType;
+    });
     
-    React.useEffect(() => {
+    // 从本地存储加载数据
+    const loadFromLocalStorage = React.useCallback(() => {
         try {
-            const app = initializeApp(firebaseConfig);
-            const firestore = getFirestore(app);
-            setDb(firestore);
-            // We still sign in anonymously to fulfill security rules if they require auth
-            const auth = getAuth(app);
-            signInAnonymously(auth).catch(error => {
-                console.error("Anonymous sign-in failed:", error);
-            });
-        } catch (error) {
-            console.error("Firebase initialization error:", error);
-            setIsReady(true); // Allow local mode if firebase fails
+            const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                return parsedData;
+            }
+        } catch (e) {
+            console.error("Failed to load from local storage", e);
         }
+        return null;
     }, []);
 
+    // 保存数据到本地存储
+    const saveToLocalStorage = React.useCallback((data) => {
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+            return true;
+        } catch (e) {
+            console.error("Failed to save to local storage", e);
+            return false;
+        }
+    }, []);
+    
+    // 初始化Firebase
+    React.useEffect(() => {
+        localStorage.setItem(STORAGE_TYPE_KEY, storageType);
+        
+        if (storageType === 'firebase') {
+            try {
+                const app = initializeApp(firebaseConfig);
+                const firestore = getFirestore(app);
+                setDb(firestore);
+                const auth = getAuth(app);
+                signInAnonymously(auth).catch(error => {
+                    console.error("Anonymous sign-in failed:", error);
+                    setStorageType('local');
+                });
+            } catch (error) {
+                console.error("Firebase initialization error:", error);
+                setStorageType('local');
+            }
+        } else {
+            setDb(null);
+        }
+    }, [storageType]);
+
+    // 处理数据加载
     const loadData = (data) => {
+        if (!data) {
+            // 创建默认数据
+            const defaultBoard = createNewBoardStructure('我的第一个看板', [
+                {id: generateId(), word: 'Welcome', definition: '欢迎使用!'},
+                {id: generateId(), word: '你好', definition: 'Hello'},
+            ]);
+            setBoards([defaultBoard]);
+            setActiveBoardId(defaultBoard.id);
+            setDailyGoal(500);
+            setDailyProgress({ count: 0, date: getTodayDateString() });
+            return;
+        }
+
+        // 设置看板数据
         setBoards(data.boards || []);
         setDailyGoal(data.dailyGoal || 500);
         
+        // 设置日进度数据
         const today = getTodayDateString();
         if (data.dailyProgress && data.dailyProgress.date === today) {
             setDailyProgress(data.dailyProgress);
@@ -251,67 +305,80 @@ const App = () => {
             setDailyProgress({ count: 0, date: today });
         }
         
+        // 设置激活的看板
         let newActiveBoardId = data.activeBoardId;
         if (!newActiveBoardId || !data.boards?.some(b => b.id === newActiveBoardId)) {
             newActiveBoardId = data.boards && data.boards.length > 0 ? data.boards[0].id : null;
         }
-
-        if (!newActiveBoardId && (!data.boards || data.boards.length === 0)) {
-            const newBoard = createNewBoardStructure('我的第一个看板', [
-                {id: generateId(), word: 'Welcome', definition: '欢迎使用!'},
-                {id: generateId(), word: '你好', definition: 'Hello'},
-            ]);
-            setBoards([newBoard]);
-            setActiveBoardId(newBoard.id);
-        } else {
-            setActiveBoardId(newActiveBoardId);
-        }
+        setActiveBoardId(newActiveBoardId);
     }
 
+    // 初始化数据加载
     React.useEffect(() => {
-        if (!db) {
-            // Fallback to local storage if db isn't initialized
-            try {
-                const localData = localStorage.getItem(appId);
-                loadData(localData ? JSON.parse(localData) : {});
-            } catch (e) {
-                console.error("Failed to load from local storage", e);
-                loadData({});
-            }
+        // 先从本地存储加载数据
+        const localData = loadFromLocalStorage();
+        
+        // 如果是本地存储模式或无法使用Firebase
+        if (storageType === 'local' || !db) {
+            loadData(localData);
             setIsReady(true);
             return;
-        };
+        }
 
-        // This is the new path for the public board
+        // Firebase模式：从Firebase加载数据
         const docRef = doc(db, 'public-boards', 'shared-board-data');
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
-                loadData(docSnap.data());
+                const firebaseData = docSnap.data();
+                loadData(firebaseData);
+                
+                // 同时更新本地存储
+                saveToLocalStorage(firebaseData);
             } else {
-                console.log("No public data in Firestore. Initializing.");
-                loadData({});
+                // Firebase中没有数据，使用本地数据或创建默认数据
+                if (localData) {
+                    loadData(localData);
+                    // 将本地数据同步到Firebase
+                    setDoc(docRef, localData, { merge: true })
+                        .catch(e => console.error("Error initializing Firebase with local data:", e));
+                } else {
+                    loadData(null); // 创建默认数据
+                }
             }
-            setIsReady(true); 
+            setIsReady(true);
         }, (error) => {
             console.error("Firestore onSnapshot error:", error);
+            loadData(localData); // 发生错误时使用本地数据
+            setStorageType('local');
             setIsReady(true);
         });
 
         return () => unsubscribe();
-    }, [db]);
+    }, [db, storageType, loadFromLocalStorage, saveToLocalStorage]);
 
-     React.useEffect(() => {
-        if (!isReady) return; 
+    // 数据保存逻辑
+    React.useEffect(() => {
+        if (!isReady) return;
+        
+        // 准备要保存的数据
+        const dataToSave = { 
+            boards, 
+            activeBoardId, 
+            dailyGoal, 
+            dailyProgress,
+            lastUpdated: new Date().toISOString() // 添加时间戳
+        };
 
-        const dataToSave = { boards, activeBoardId, dailyGoal, dailyProgress };
+        // 无论使用哪种存储方式，始终保存到本地
+        saveToLocalStorage(dataToSave);
 
-        if (db) {
+        // 如果使用Firebase，同时保存到云端
+        if (storageType === 'firebase' && db) {
             const docRef = doc(db, 'public-boards', 'shared-board-data');
-            setDoc(docRef, dataToSave, { merge: true }).catch(e => console.error("Error saving data:", e));
-        } else {
-            localStorage.setItem(appId, JSON.stringify(dataToSave));
+            setDoc(docRef, dataToSave, { merge: true })
+                .catch(e => console.error("Error saving data to Firebase:", e));
         }
-    }, [boards, activeBoardId, dailyGoal, dailyProgress, isReady, db]);
+    }, [boards, activeBoardId, dailyGoal, dailyProgress, isReady, db, storageType, saveToLocalStorage]);
 
     const incrementProgress = () => {
         setDailyProgress(prev => {
@@ -329,10 +396,21 @@ const App = () => {
     };
 
     const handleCreateBoard = (name, cards) => {
+        // 创建新看板
         const newBoard = createNewBoardStructure(name, cards);
         const newBoards = [...boards, newBoard];
         setBoards(newBoards);
         setActiveBoardId(newBoard.id);
+        
+        // 确保保存到本地
+        const dataToSave = { 
+            boards: newBoards, 
+            activeBoardId: newBoard.id,
+            dailyGoal, 
+            dailyProgress,
+            lastUpdated: new Date().toISOString()
+        };
+        saveToLocalStorage(dataToSave);
     };
     
     const handleDeleteBoard = (boardId) => {
@@ -459,8 +537,18 @@ const App = () => {
     const selectedCard = activeBoard?.lists.flatMap(l => l.cards).find(c => c.id === selectedCardId);
     const activeListForProgressBar = activeBoard?.lists.find(l => l.id === activeListForProgress?.listId);
 
+    // 切换存储类型的函数
+    const toggleStorageType = () => {
+        const newType = storageType === 'local' ? 'firebase' : 'local';
+        setStorageType(newType);
+        // 确保存储类型保存到localStorage
+        localStorage.setItem(STORAGE_TYPE_KEY, newType);
+    };
+
     if (!isReady) {
-        return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">正在连接公共看板...</div>;
+        return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">
+            正在加载数据...
+        </div>;
     }
 
     return (
@@ -479,7 +567,16 @@ const App = () => {
 
             <div className="flex flex-grow overflow-hidden">
                 <aside className="w-64 bg-gray-800/50 p-4 flex-shrink-0 flex flex-col border-r border-gray-700">
-                    <h1 className="text-xl font-bold mb-4">我的看板</h1>
+                    <div className="flex justify-between items-center mb-4">
+                        <h1 className="text-xl font-bold">我的看板</h1>
+                        <button 
+                            onClick={toggleStorageType} 
+                            className={`text-xs px-2 py-1 rounded ${storageType === 'local' ? 'bg-gray-600' : 'bg-blue-600'}`}
+                            title={storageType === 'local' ? '当前使用本地存储' : '当前使用云端存储'}
+                        >
+                            {storageType === 'local' ? '本地' : '云端'}
+                        </button>
+                    </div>
                     <div className="flex-grow overflow-y-auto space-y-2">
                         {boards.map(board => (
                             <div key={board.id} onClick={() => handleBoardChange(board.id)} className={`group p-2 rounded-md cursor-pointer transition-colors ${activeBoardId === board.id ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>
@@ -509,7 +606,7 @@ const App = () => {
                         <div className="flex-grow flex items-center justify-center">
                             <div className="text-center text-gray-500">
                                 <h2 className="text-2xl">没有看板</h2>
-                                <p className="mt-2">点击左侧的“创建新看板”开始你的学习之旅吧！</p>
+                                <p className="mt-2">点击左侧的"创建新看板"开始你的学习之旅吧！</p>
                             </div>
                         </div>
                     )}
