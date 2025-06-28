@@ -343,6 +343,7 @@ const App = () => {
              // Create a default board if no data exists
             const initializeDefaultBoard = async () => {
                 try {
+                    // 加载牛津3000词
                     const response = await fetch('/牛津3000词.csv');
                     const text = await response.text();
                     console.log(`CSV文件总行数: ${text.split('\n').length}`);
@@ -376,9 +377,25 @@ const App = () => {
 
                     console.log(`成功解析的单词数量: ${cards.length}`);
                     console.log(`解析失败的行数: ${failedLines}`);
+                    
+                    // 创建牛津3000词看板
                     const defaultBoard = createNewBoardStructure("牛津3000词", cards);
-                    setBoards([defaultBoard]);
-                    setActiveBoardId(defaultBoard.id);
+                    
+                    try {
+                        // 加载HSK3000词
+                        const hskCards = await loadHSK3000();
+                        // 创建HSK3000词看板
+                        const hskBoard = createNewBoardStructure("HSK3000词", hskCards);
+                        
+                        // 设置两个看板
+                        setBoards([defaultBoard, hskBoard]);
+                        setActiveBoardId(defaultBoard.id);
+                    } catch (hskError) {
+                        console.error("Failed to load HSK word list:", hskError);
+                        // 如果HSK加载失败，只使用牛津词汇
+                        setBoards([defaultBoard]);
+                        setActiveBoardId(defaultBoard.id);
+                    }
                 } catch (error) {
                     console.error("Failed to load default word list:", error);
                     const emptyBoard = createNewBoardStructure("我的看板");
@@ -724,6 +741,50 @@ const App = () => {
         };
         
         reader.readAsText(file);
+    };
+
+    // 添加加载HSK3000词汇表的函数
+    const loadHSK3000 = async () => {
+        try {
+            const response = await fetch('/Mandarin Chinese_ New HSK 3.0 Vocabulary and Characters__Characters.txt');
+            const text = await response.text();
+            console.log(`HSK文件总行数: ${text.split('\n').length}`);
+            
+            let failedLines = 0;
+            const cards = text
+                .split('\n')
+                .slice(1) // 跳过第一行（标题行）
+                .map((line, index) => {
+                    // 如果行为空，则跳过
+                    if (!line.trim()) {
+                        console.log(`第${index+1}行为空行`);
+                        failedLines++;
+                        return null;
+                    }
+                    
+                    const parts = line.split('\t'); // 使用制表符分隔
+                    
+                    // 只提取汉字和拼音
+                    if (parts.length >= 2 && parts[0].trim() && parts[1].trim()) {
+                        return {
+                            id: generateId(),
+                            word: parts[0].trim(), // 汉字
+                            definition: parts[1].trim() // 拼音
+                        };
+                    }
+                    
+                    console.log(`第${index+1}行解析失败: ${line}`);
+                    failedLines++;
+                    return null;
+                })
+                .filter(Boolean);
+                
+            console.log(`成功解析HSK单词数: ${cards.length}, 解析失败: ${failedLines}`);
+            return cards;
+        } catch (error) {
+            console.error("加载HSK3000词汇表出错:", error);
+            throw error; // 重新抛出错误，让调用者处理
+        }
     };
 
     if (!isReady) {
