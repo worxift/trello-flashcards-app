@@ -754,7 +754,7 @@ const App = () => {
             let failedLines = 0;
             const cards = text
                 .split('\n')
-                .slice(1) // 跳过第一行（标题行）
+                // .slice(1) // 不跳过第一行，因为它不是标题行
                 .map((line, index) => {
                     // 如果行为空，则跳过
                     if (!line.trim()) {
