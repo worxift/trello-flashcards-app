@@ -331,7 +331,68 @@ const App = () => {
         setActiveBoardId(newActiveBoardId);
     }
 
-    // 初始化数据加载
+    // This effect handles loading data from local storage.
+    // It's separate to avoid re-running the default board creation logic.
+    React.useEffect(() => {
+        if (isReady || storageType !== 'local') return;
+
+        const data = loadFromLocalStorage();
+        if (data) {
+            loadData(data);
+        } else {
+             // Create a default board if no data exists
+            const initializeDefaultBoard = async () => {
+                try {
+                    const response = await fetch('/牛津3000词.csv');
+                    const text = await response.text();
+                    console.log(`CSV文件总行数: ${text.split('\n').length}`);
+                    let failedLines = 0;
+                    const cards = text
+                        .split('\n')
+                        .map((line, index) => {
+                            // 如果行为空，则跳过
+                            if (!line.trim()) {
+                                console.log(`第${index+1}行为空行`);
+                                failedLines++;
+                                return null;
+                            }
+                            
+                            const parts = line.split(',');
+                            
+                            // 只要有单词部分就创建卡片
+                            if (parts[0] && parts[0].trim()) {
+                                return {
+                                    id: generateId(),
+                                    word: parts[0].trim(),
+                                    definition: parts.slice(1).join(',').trim().replace(/"/g, '')
+                                };
+                            }
+                            
+                            console.log(`第${index+1}行解析失败: "${line}"`);
+                            failedLines++;
+                            return null;
+                        })
+                        .filter(Boolean);
+
+                    console.log(`成功解析的单词数量: ${cards.length}`);
+                    console.log(`解析失败的行数: ${failedLines}`);
+                    const defaultBoard = createNewBoardStructure("牛津3000词", cards);
+                    setBoards([defaultBoard]);
+                    setActiveBoardId(defaultBoard.id);
+                } catch (error) {
+                    console.error("Failed to load default word list:", error);
+                    const emptyBoard = createNewBoardStructure("我的看板");
+                    setBoards([emptyBoard]);
+                    setActiveBoardId(emptyBoard.id);
+                } finally {
+                    setIsReady(true);
+                }
+            };
+            initializeDefaultBoard();
+        }
+    }, [isReady, storageType, loadFromLocalStorage, loadData]);
+
+    // 数据加载和初始化
     React.useEffect(() => {
         // 先从本地存储加载数据
         const localData = loadFromLocalStorage();
@@ -621,49 +682,6 @@ const App = () => {
                     <div className="mt-4 space-y-2">
                         <button onClick={() => setIsModalOpen(true)} className="w-full p-2 bg-blue-600 rounded-md hover:bg-blue-500 transition-colors font-semibold">
                             + 创建新看板
-                        </button>
-                        <button 
-                            onClick={() => {
-                                fetch('/oxford3000.txt')
-                                    .then(response => response.text())
-                                    .then(text => {
-                                        const lines = text.split('\n').filter(line => line.trim());
-                                        const cards = lines.map(line => {
-                                            const parts = line.split(' ');
-                                            if (parts.length >= 2) {
-                                                const word = parts[0];
-                                                const definition = parts.slice(1).join(' ');
-                                                return { id: generateId(), word, definition };
-                                            }
-                                            return null;
-                                        }).filter(Boolean);
-                                        
-                                        if (cards.length > 0) {
-                                            const newBoard = createNewBoardStructure('Oxford 3000', cards);
-                                            const newBoards = [...boards, newBoard];
-                                            setBoards(newBoards);
-                                            setActiveBoardId(newBoard.id);
-                                            
-                                            // 确保保存到本地
-                                            const dataToSave = { 
-                                                boards: newBoards, 
-                                                activeBoardId: newBoard.id,
-                                                dailyGoal, 
-                                                dailyProgress,
-                                                lastUpdated: new Date().toISOString()
-                                            };
-                                            saveToLocalStorage(dataToSave);
-                                            alert(`成功导入 ${cards.length} 个Oxford 3000词汇！`);
-                                        }
-                                    })
-                                    .catch(err => {
-                                        console.error('导入Oxford 3000词汇失败:', err);
-                                        alert('导入失败，请稍后再试');
-                                    });
-                            }}
-                            className="w-full p-2 bg-green-600 rounded-md hover:bg-green-500 transition-colors font-semibold"
-                        >
-                            导入 Oxford 3000 词汇
                         </button>
                     </div>
                 </aside>
