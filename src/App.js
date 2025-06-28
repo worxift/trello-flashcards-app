@@ -165,8 +165,8 @@ const ConfirmationModal = ({ isOpen, message, onConfirm, onCancel }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-sm text-gray-200">
-                <p className="mb-6">{message}</p>
+            <div className="bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md text-gray-200">
+                <p className="mb-6 whitespace-pre-line">{message}</p>
                 <div className="flex justify-end space-x-3">
                     <button onClick={onCancel} className="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-500 transition-colors">取消</button>
                     <button onClick={onConfirm} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-500 font-semibold transition-colors">确认</button>
@@ -624,6 +624,108 @@ const App = () => {
         localStorage.setItem(STORAGE_TYPE_KEY, newType);
     };
 
+    const handleExportData = () => {
+        // 准备要导出的数据
+        const dataToExport = { 
+            boards, 
+            activeBoardId, 
+            dailyGoal, 
+            dailyProgress,
+            exportDate: new Date().toISOString()
+        };
+        
+        // 创建Blob并下载
+        const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().split('T')[0]; // 格式：YYYY-MM-DD
+        a.href = url;
+        a.download = `flashcards-backup-${date}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('备份文件已成功导出！');
+    };
+
+    const handleImportData = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                
+                // 验证导入的数据格式
+                if (!importedData.boards || !Array.isArray(importedData.boards)) {
+                    throw new Error('无效的备份文件格式');
+                }
+                
+                // 使用确认对话框
+                const backupDate = new Date(importedData.exportDate || '').toLocaleString();
+                const boardCount = importedData.boards.length;
+                const wordCount = importedData.boards.reduce((total, board) => {
+                    return total + board.lists.reduce((boardTotal, list) => boardTotal + list.cards.length, 0);
+                }, 0);
+                
+                setConfirmation({
+                    isOpen: true,
+                    message: `确定要导入此备份文件吗？这将覆盖当前的所有数据。\n\n备份日期: ${backupDate}\n看板数量: ${boardCount}\n单词总数: ${wordCount}`,
+                    onConfirm: () => {
+                        // 设置导入的数据
+                        setBoards(importedData.boards);
+                        setActiveBoardId(importedData.activeBoardId);
+                        setDailyGoal(importedData.dailyGoal || 500);
+                        
+                        // 处理日进度数据
+                        const today = getTodayDateString();
+                        if (importedData.dailyProgress && importedData.dailyProgress.date === today) {
+                            setDailyProgress(importedData.dailyProgress);
+                        } else {
+                            setDailyProgress({ count: 0, date: today });
+                        }
+                        
+                        // 保存到存储
+                        const dataToSave = {
+                            boards: importedData.boards,
+                            activeBoardId: importedData.activeBoardId,
+                            dailyGoal: importedData.dailyGoal || 500,
+                            dailyProgress: importedData.dailyProgress && importedData.dailyProgress.date === today 
+                                ? importedData.dailyProgress 
+                                : { count: 0, date: today },
+                            lastUpdated: new Date().toISOString()
+                        };
+                        
+                        saveToLocalStorage(dataToSave);
+                        
+                        // 如果使用Firebase，同时保存到云端
+                        if (storageType === 'firebase' && db) {
+                            const docRef = doc(db, 'public-boards', 'shared-board-data');
+                            setDoc(docRef, dataToSave, { merge: true })
+                                .catch(e => console.error("Error saving imported data to Firebase:", e));
+                        }
+                        
+                        alert('数据已成功导入！');
+                        setConfirmation({ isOpen: false, message: '', onConfirm: () => {} });
+                    },
+                    onCancel: () => {
+                        setConfirmation({ isOpen: false, message: '', onConfirm: () => {} });
+                    }
+                });
+            } catch (error) {
+                console.error('导入数据时出错:', error);
+                alert('导入失败: ' + (error.message || '无效的备份文件'));
+            }
+            
+            // 重置文件输入，以便用户可以再次选择同一文件
+            event.target.value = '';
+        };
+        
+        reader.readAsText(file);
+    };
+
     if (!isReady) {
         return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">
             正在加载数据...
@@ -683,6 +785,27 @@ const App = () => {
                         <button onClick={() => setIsModalOpen(true)} className="w-full p-2 bg-blue-600 rounded-md hover:bg-blue-500 transition-colors font-semibold">
                             + 创建新看板
                         </button>
+                        <div className="flex space-x-2">
+                            <button 
+                                onClick={handleExportData} 
+                                className="flex-1 p-2 bg-green-600 rounded-md hover:bg-green-500 transition-colors font-semibold"
+                            >
+                                导出备份
+                            </button>
+                            <button 
+                                onClick={() => document.getElementById('import-file').click()} 
+                                className="flex-1 p-2 bg-purple-600 rounded-md hover:bg-purple-500 transition-colors font-semibold"
+                            >
+                                导入备份
+                            </button>
+                            <input 
+                                id="import-file" 
+                                type="file" 
+                                accept=".json" 
+                                onChange={handleImportData} 
+                                className="hidden" 
+                            />
+                        </div>
                     </div>
                 </aside>
 
