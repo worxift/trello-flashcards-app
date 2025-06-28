@@ -746,7 +746,8 @@ const App = () => {
     // 添加加载HSK3000词汇表的函数
     const loadHSK3000 = async () => {
         try {
-            const response = await fetch('/Mandarin Chinese_ New HSK 3.0 Vocabulary and Characters__Characters.txt');
+            // 修复文件路径，确保使用完整的文件名
+            const response = await fetch('/Mandarin%20Chinese_%20New%20HSK%203.0%20Vocabulary%20and%20Characters__Characters.txt');
             const text = await response.text();
             console.log(`HSK文件总行数: ${text.split('\n').length}`);
             
