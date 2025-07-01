@@ -105,8 +105,8 @@ const NewBoardModal = ({ isOpen, onClose, onCreate }) => {
 };
 
 const DefinitionTooltip = ({ definition, selectedCard, onEdit, onDelete }) => (
-    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-6 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 relative">
-        <p className="text-center text-xl font-medium text-blue-300 mb-0">{definition || '选中一张卡片以查看释义'}</p>
+    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-6 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 flex justify-center items-center">
+        <p className="text-center text-xl font-medium text-blue-300">{definition || '选中一张卡片以查看释义'}</p>
         
         {/* 低调的按钮区域，定位在右下角，默认半透明 */}
         {selectedCard && (
