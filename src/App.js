@@ -286,31 +286,9 @@ const App = () => {
     // 处理数据加载
     const loadData = (data) => {
         if (!data) {
-            // 创建默认数据
-            const defaultBoard = createNewBoardStructure('Oxford 3000', [
-                {id: generateId(), word: 'ability', definition: '能力'},
-                {id: generateId(), word: 'able', definition: '能够的'},
-                {id: generateId(), word: 'about', definition: '关于'},
-                {id: generateId(), word: 'above', definition: '在...之上'},
-                {id: generateId(), word: 'accept', definition: '接受'},
-                {id: generateId(), word: 'according to', definition: '根据'},
-                {id: generateId(), word: 'account', definition: '账户；说明'},
-                {id: generateId(), word: 'across', definition: '穿过；横过'},
-                {id: generateId(), word: 'act', definition: '行动；表演；法令'},
-                {id: generateId(), word: 'action', definition: '行动；动作'},
-                {id: generateId(), word: 'activity', definition: '活动'},
-                {id: generateId(), word: 'actually', definition: '实际上'},
-                {id: generateId(), word: 'add', definition: '添加；增加'},
-                {id: generateId(), word: 'address', definition: '地址；演讲'},
-                {id: generateId(), word: 'administration', definition: '管理；行政'},
-                {id: generateId(), word: 'admit', definition: '承认；准许进入'},
-                {id: generateId(), word: 'adult', definition: '成年人'},
-                {id: generateId(), word: 'affect', definition: '影响；感动'},
-                {id: generateId(), word: 'after', definition: '在...之后'},
-                {id: generateId(), word: 'again', definition: '再次；又'},
-            ]);
-            setBoards([defaultBoard]);
-            setActiveBoardId(defaultBoard.id);
+            // 创建空看板，等待真正的看板加载
+            setBoards([]);
+            setActiveBoardId(null);
             setDailyGoal(500);
             setDailyProgress({ count: 0, date: getTodayDateString() });
             return;
@@ -448,14 +426,15 @@ const App = () => {
                 // 同时更新本地存储
                 saveToLocalStorage(firebaseData);
             } else {
-                // Firebase中没有数据，使用本地数据或创建默认数据
+                // Firebase中没有数据，使用本地数据或将空数据保存
                 if (localData) {
                     loadData(localData);
                     // 将本地数据同步到Firebase
                     setDoc(docRef, localData, { merge: true })
                         .catch(e => console.error("Error initializing Firebase with local data:", e));
                 } else {
-                    loadData(null); // 创建默认数据
+                    // 设置空数据，后续会通过另一个useEffect加载标准看板
+                    loadData(null);
                 }
             }
             setIsReady(true);
