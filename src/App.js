@@ -843,6 +843,64 @@ const App = () => {
         }
     };
 
+    // 添加随机排序Inbox中单词的函数
+    const handleRandomizeInbox = (boardId) => {
+        setBoards(currentBoards => {
+            const newBoards = [...currentBoards];
+            const boardIndex = newBoards.findIndex(b => b.id === boardId);
+            
+            if (boardIndex === -1) return currentBoards;
+            
+            const board = {...newBoards[boardIndex]};
+            const lists = [...board.lists];
+            
+            // 查找Inbox列表
+            const inboxIndex = lists.findIndex(list => list.title === 'Inbox');
+            
+            if (inboxIndex === -1 || lists[inboxIndex].cards.length <= 1) {
+                alert('Inbox中没有足够的单词可以排序！');
+                return currentBoards;
+            }
+            
+            // 创建Inbox列表的副本
+            const inboxList = {...lists[inboxIndex]};
+            
+            // 对Inbox列表的卡片进行随机排序 (Fisher-Yates洗牌算法)
+            const shuffledCards = [...inboxList.cards];
+            for (let i = shuffledCards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
+            }
+            
+            // 更新Inbox列表的卡片
+            inboxList.cards = shuffledCards;
+            lists[inboxIndex] = inboxList;
+            
+            // 更新board和boards
+            board.lists = lists;
+            newBoards[boardIndex] = board;
+            
+            // 保存到存储
+            const dataToSave = {
+                boards: newBoards,
+                activeBoardId: activeBoardId,
+                dailyGoal: dailyGoal,
+                dailyProgress: dailyProgress,
+                lastUpdated: new Date().toISOString()
+            };
+            
+            if (storageType === 'local') {
+                saveToLocalStorage(dataToSave);
+            } else if (db) {
+                const docRef = doc(db, 'public-boards', 'shared-board-data');
+                setDoc(docRef, dataToSave, { merge: true })
+                    .catch(e => console.error("Error updating Firebase:", e));
+            }
+            
+            return newBoards;
+        });
+    };
+
     if (!isReady) {
         return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">
             正在加载数据...
@@ -893,6 +951,7 @@ const App = () => {
                                     <div className="flex items-center space-x-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={(e) => { e.stopPropagation(); handleRenameBoard(board.id, board.name); }} className="text-xs text-gray-400 hover:text-white">重命名</button>
                                         <button onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board.id); }} className="text-xs text-red-500 hover:text-red-400">删除</button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleRandomizeInbox(board.id); }} className="text-xs text-yellow-500 hover:text-yellow-400">随机排序</button>
                                     </div>
                                 </div>
                             );
