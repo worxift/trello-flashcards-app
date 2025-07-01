@@ -148,7 +148,12 @@ const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, h
             onDragLeave={() => setDragOverList(null)}
             onDrop={(e) => { e.preventDefault(); handleDrop(e, list.id); setDragOverList(null); }}
         >
-            <h3 className="font-bold text-center text-gray-300 p-2 cursor-pointer">{list.title}</h3>
+            <div className="flex items-center justify-center p-2">
+                <h3 className="font-bold text-gray-300 cursor-pointer">{list.title}</h3>
+                <span className="ml-2 px-1.5 py-0.5 bg-gray-700 text-xs text-gray-400 rounded">
+                    {list.cards.length}
+                </span>
+            </div>
             <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md`}>
                 {list.cards.map((card) => (
                     <div key={card.id} onClick={() => onCardClick(card.id, list.id)}>
