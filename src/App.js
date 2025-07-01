@@ -387,9 +387,21 @@ const App = () => {
                         // 创建HSK3000词看板
                         const hskBoard = createNewBoardStructure("HSK3000词", hskCards);
                         
-                        // 设置两个看板
-                        setBoards([defaultBoard, hskBoard]);
-                        setActiveBoardId(defaultBoard.id);
+                        try {
+                            // 加载TOPIK初级词汇
+                            const topikCards = await loadTOPIK1560();
+                            // 创建TOPIK1560词看板
+                            const topikBoard = createNewBoardStructure("TOPIK1560词", topikCards);
+                            
+                            // 设置三个看板
+                            setBoards([defaultBoard, hskBoard, topikBoard]);
+                            setActiveBoardId(defaultBoard.id);
+                        } catch (topikError) {
+                            console.error("Failed to load TOPIK word list:", topikError);
+                            // 如果TOPIK加载失败，只使用牛津和HSK词汇
+                            setBoards([defaultBoard, hskBoard]);
+                            setActiveBoardId(defaultBoard.id);
+                        }
                     } catch (hskError) {
                         console.error("Failed to load HSK word list:", hskError);
                         // 如果HSK加载失败，只使用牛津词汇
@@ -784,6 +796,49 @@ const App = () => {
             return cards;
         } catch (error) {
             console.error("加载HSK3000词汇表出错:", error);
+            throw error; // 重新抛出错误，让调用者处理
+        }
+    };
+
+    // 添加加载TOPIK初级词汇表的函数
+    const loadTOPIK1560 = async () => {
+        try {
+            const response = await fetch('/TOPIK初级I必背单词1560词.txt');
+            const text = await response.text();
+            console.log(`TOPIK文件总行数: ${text.split('\n').length}`);
+            
+            let failedLines = 0;
+            const cards = text
+                .split('\n')
+                .map((line, index) => {
+                    // 如果行为空，则跳过
+                    if (!line.trim()) {
+                        console.log(`第${index+1}行为空行`);
+                        failedLines++;
+                        return null;
+                    }
+                    
+                    const parts = line.split('\t'); // 使用制表符分隔
+                    
+                    // 只提取韩语单词和汉语释义（前两列）
+                    if (parts.length >= 2 && parts[0].trim() && parts[1].trim()) {
+                        return {
+                            id: generateId(),
+                            word: parts[0].trim(), // 韩语单词
+                            definition: parts[1].trim() // 汉语释义
+                        };
+                    }
+                    
+                    console.log(`第${index+1}行解析失败: ${line}`);
+                    failedLines++;
+                    return null;
+                })
+                .filter(Boolean);
+                
+            console.log(`成功解析TOPIK单词数: ${cards.length}, 解析失败: ${failedLines}`);
+            return cards;
+        } catch (error) {
+            console.error("加载TOPIK初级词汇表出错:", error);
             throw error; // 重新抛出错误，让调用者处理
         }
     };
