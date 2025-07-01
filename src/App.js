@@ -105,22 +105,28 @@ const NewBoardModal = ({ isOpen, onClose, onCreate }) => {
 };
 
 const DefinitionTooltip = ({ definition, selectedCard, onEdit, onDelete }) => (
-    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-4 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 flex flex-col items-center justify-center">
-        <p className="text-center mb-2">{definition || '选中一张卡片以查看释义'}</p>
+    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-6 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 relative">
+        <p className="text-center text-xl font-medium text-blue-300 mb-0">{definition || '选中一张卡片以查看释义'}</p>
+        
+        {/* 低调的按钮区域，定位在右下角，默认半透明 */}
         {selectedCard && (
-            <div className="flex space-x-2 mt-2">
-                <button 
-                    onClick={() => onEdit(selectedCard)} 
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium"
-                >
-                    编辑卡片
-                </button>
-                <button 
-                    onClick={() => onDelete(selectedCard)} 
-                    className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-sm font-medium"
-                >
-                    删除卡片
-                </button>
+            <div className="absolute right-2 bottom-2 opacity-30 hover:opacity-90 transition-opacity">
+                <div className="flex space-x-1">
+                    <button 
+                        onClick={() => onEdit(selectedCard)} 
+                        className="px-2 py-0.5 bg-gray-700 hover:bg-blue-700 rounded text-xs"
+                        title="编辑卡片"
+                    >
+                        编辑
+                    </button>
+                    <button 
+                        onClick={() => onDelete(selectedCard)} 
+                        className="px-2 py-0.5 bg-gray-700 hover:bg-red-700 rounded text-xs"
+                        title="删除卡片"
+                    >
+                        删除
+                    </button>
+                </div>
             </div>
         )}
     </div>
