@@ -104,9 +104,17 @@ const NewBoardModal = ({ isOpen, onClose, onCreate }) => {
     );
 };
 
-const DefinitionTooltip = ({ definition }) => (
-    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-4 w-full max-w-sm h-24 text-gray-300 z-30 flex items-center justify-center">
-        <p className="text-center">{definition || '选中一张卡片以查看释义'}</p>
+const DefinitionTooltip = ({ definition, selectedCard, onEdit }) => (
+    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-4 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 flex flex-col items-center justify-center">
+        <p className="text-center mb-2">{definition || '选中一张卡片以查看释义'}</p>
+        {selectedCard && (
+            <button 
+                onClick={() => onEdit(selectedCard)} 
+                className="mt-2 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium"
+            >
+                编辑卡片
+            </button>
+        )}
     </div>
 );
 
@@ -181,6 +189,63 @@ const ConfirmationModal = ({ isOpen, message, onConfirm, onCancel }) => {
     );
 };
 
+const EditCardModal = ({ isOpen, card, onClose, onSave }) => {
+    const [word, setWord] = React.useState('');
+    const [definition, setDefinition] = React.useState('');
+    
+    // 当卡片改变或模态窗口打开时更新状态
+    React.useEffect(() => {
+        if (card) {
+            setWord(card.word || '');
+            setDefinition(card.definition || '');
+        }
+    }, [card, isOpen]);
+    
+    if (!isOpen || !card) return null;
+    
+    const handleSave = () => {
+        // 验证单词和释义不为空
+        if (!word.trim()) {
+            alert('单词不能为空！');
+            return;
+        }
+        
+        onSave({...card, word: word.trim(), definition: definition.trim()});
+        onClose();
+    };
+    
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-lg text-gray-200">
+                <h2 className="text-xl font-bold mb-4">编辑卡片</h2>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">单词</label>
+                        <input 
+                            type="text" 
+                            value={word} 
+                            onChange={(e) => setWord(e.target.value)} 
+                            className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">释义</label>
+                        <textarea 
+                            value={definition} 
+                            onChange={(e) => setDefinition(e.target.value)} 
+                            className="w-full h-32 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                    <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-500 transition-colors">取消</button>
+                    <button onClick={handleSave} className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 font-semibold transition-colors">保存</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const DailyGoalProgressBar = ({ progress, goal, onGoalChange }) => (
     <div className="w-full bg-gray-800 p-3 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-2 text-sm">
@@ -234,6 +299,8 @@ const App = () => {
         // 在组件初始化时读取存储类型
         return localStorage.getItem(STORAGE_TYPE_KEY) || defaultStorageType;
     });
+    const [isEditCardModalOpen, setIsEditCardModalOpen] = React.useState(false);
+    const [cardToEdit, setCardToEdit] = React.useState(null);
     
     // 从本地存储加载数据
     const loadFromLocalStorage = React.useCallback(() => {
@@ -885,6 +952,40 @@ const App = () => {
         });
     };
 
+    // 添加处理编辑卡片的函数
+    const handleEditCard = (card) => {
+        setCardToEdit(card);
+        setIsEditCardModalOpen(true);
+    };
+    
+    // 添加保存编辑卡片的函数
+    const handleSaveCard = (editedCard) => {
+        // 更新boards状态
+        setBoards(currentBoards => {
+            const newBoards = [...currentBoards];
+            const boardIndex = newBoards.findIndex(b => b.id === activeBoardId);
+            
+            if (boardIndex === -1) return currentBoards;
+            
+            const board = {...newBoards[boardIndex]};
+            const newLists = board.lists.map(list => {
+                // 查找卡片并更新
+                const cardIndex = list.cards.findIndex(c => c.id === editedCard.id);
+                if (cardIndex === -1) return list;
+                
+                const newCards = [...list.cards];
+                newCards[cardIndex] = editedCard;
+                
+                return {...list, cards: newCards};
+            });
+            
+            board.lists = newLists;
+            newBoards[boardIndex] = board;
+            
+            return newBoards;
+        });
+    };
+
     if (!isReady) {
         return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">
             正在加载数据...
@@ -895,6 +996,7 @@ const App = () => {
         <div className="bg-gray-900 text-white h-screen flex flex-col font-sans">
             <ConfirmationModal isOpen={confirmation.isOpen} message={confirmation.message} onConfirm={confirmation.onConfirm} onCancel={() => setConfirmation({ isOpen: false, message: '', onConfirm: () => {} })}/>
             <NewBoardModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreate={handleCreateBoard} />
+            <EditCardModal isOpen={isEditCardModalOpen} card={cardToEdit} onClose={() => setIsEditCardModalOpen(false)} onSave={handleSaveCard} />
 
             <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 p-2 flex items-stretch gap-4 z-20">
                 <div className="flex-1">
@@ -989,7 +1091,7 @@ const App = () => {
                 </main>
             </div>
             
-            <DefinitionTooltip definition={selectedCard?.definition} />
+            <DefinitionTooltip definition={selectedCard?.definition} selectedCard={selectedCard} onEdit={handleEditCard} />
         </div>
     );
 };
