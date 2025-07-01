@@ -104,16 +104,24 @@ const NewBoardModal = ({ isOpen, onClose, onCreate }) => {
     );
 };
 
-const DefinitionTooltip = ({ definition, selectedCard, onEdit }) => (
+const DefinitionTooltip = ({ definition, selectedCard, onEdit, onDelete }) => (
     <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-4 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 flex flex-col items-center justify-center">
         <p className="text-center mb-2">{definition || '选中一张卡片以查看释义'}</p>
         {selectedCard && (
-            <button 
-                onClick={() => onEdit(selectedCard)} 
-                className="mt-2 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium"
-            >
-                编辑卡片
-            </button>
+            <div className="flex space-x-2 mt-2">
+                <button 
+                    onClick={() => onEdit(selectedCard)} 
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium"
+                >
+                    编辑卡片
+                </button>
+                <button 
+                    onClick={() => onDelete(selectedCard)} 
+                    className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-sm font-medium"
+                >
+                    删除卡片
+                </button>
+            </div>
         )}
     </div>
 );
@@ -986,6 +994,43 @@ const App = () => {
         });
     };
 
+    // 添加处理删除卡片的函数
+    const handleDeleteCard = (card) => {
+        setConfirmation({
+            isOpen: true,
+            message: `确定要删除此卡片吗？\n\n单词：${card.word}\n释义：${card.definition || '无'}`,
+            onConfirm: () => {
+                // 更新boards状态
+                setBoards(currentBoards => {
+                    const newBoards = [...currentBoards];
+                    const boardIndex = newBoards.findIndex(b => b.id === activeBoardId);
+                    
+                    if (boardIndex === -1) return currentBoards;
+                    
+                    const board = {...newBoards[boardIndex]};
+                    const newLists = board.lists.map(list => {
+                        // 过滤掉要删除的卡片
+                        const newCards = list.cards.filter(c => c.id !== card.id);
+                        return {...list, cards: newCards};
+                    });
+                    
+                    board.lists = newLists;
+                    newBoards[boardIndex] = board;
+                    
+                    return newBoards;
+                });
+                
+                // 如果正在删除的卡片是当前选中的卡片，则取消选中
+                if (selectedCardId === card.id) {
+                    setSelectedCardId(null);
+                    setSelectedListId(null);
+                }
+                
+                setConfirmation({ isOpen: false, message: '', onConfirm: () => {} });
+            }
+        });
+    };
+
     if (!isReady) {
         return <div className="bg-gray-900 text-white h-screen flex items-center justify-center">
             正在加载数据...
@@ -1091,7 +1136,12 @@ const App = () => {
                 </main>
             </div>
             
-            <DefinitionTooltip definition={selectedCard?.definition} selectedCard={selectedCard} onEdit={handleEditCard} />
+            <DefinitionTooltip 
+                definition={selectedCard?.definition} 
+                selectedCard={selectedCard} 
+                onEdit={handleEditCard}
+                onDelete={handleDeleteCard}
+            />
         </div>
     );
 };
