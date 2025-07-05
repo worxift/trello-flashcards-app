@@ -656,6 +656,36 @@ const App = () => {
             if (!selectedCardId || !selectedListId) return;
             if (event.target.tagName.toLowerCase() === 'input' || event.target.tagName.toLowerCase() === 'textarea') return;
 
+            // 处理上下方向键 - 在同一列表内切换卡片
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                
+                const board = boards.find(b => b.id === activeBoardId);
+                if (!board) return;
+                
+                const currentList = board.lists.find(l => l.id === selectedListId);
+                if (!currentList) return;
+                
+                const cards = currentList.cards;
+                if (cards.length <= 1) return; // 只有一张卡片时无法切换
+                
+                const currentCardIndex = cards.findIndex(c => c.id === selectedCardId);
+                if (currentCardIndex === -1) return;
+                
+                let newCardIndex;
+                if (event.key === 'ArrowUp') {
+                    // 向上导航到前一张卡片，如果已经是第一张则循环到最后一张
+                    newCardIndex = (currentCardIndex - 1 + cards.length) % cards.length;
+                } else {
+                    // 向下导航到后一张卡片，如果已经是最后一张则循环到第一张
+                    newCardIndex = (currentCardIndex + 1) % cards.length;
+                }
+                
+                setSelectedCardId(cards[newCardIndex].id);
+                return;
+            }
+            
+            // 处理左右方向键 - 将卡片移动到相邻列表
             setBoards(prevBoards => {
                 const newBoards = JSON.parse(JSON.stringify(prevBoards));
                 const board = newBoards.find(b => b.id === activeBoardId);
