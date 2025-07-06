@@ -105,8 +105,15 @@ const NewBoardModal = ({ isOpen, onClose, onCreate }) => {
 };
 
 const DefinitionTooltip = ({ definition, selectedCard, onEdit, onDelete }) => (
-    <div className="fixed bottom-0 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-3 w-full max-w-sm h-auto min-h-16 text-gray-300 z-30 flex justify-center items-center">
+    <div className="fixed bottom-0 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-3 w-full max-w-sm h-auto min-h-16 text-gray-300 z-30 flex flex-col justify-center items-center">
         <p className="text-center text-xl font-medium text-blue-300">{definition || '选中一张卡片以查看释义'}</p>
+        
+        {/* 快捷键提示 */}
+        {selectedCard && (
+            <div className="mt-1 text-xs text-gray-400">
+                按 <kbd className="px-1 py-0.5 bg-gray-700 rounded">空格</kbd> 归档已掌握的单词
+            </div>
+        )}
         
         {/* 低调的按钮区域，定位在右下角，默认半透明 */}
         {selectedCard && (
@@ -678,6 +685,65 @@ const App = () => {
         const handleKeyDown = (event) => {
             if (!selectedCardId || !selectedListId) return;
             if (event.target.tagName.toLowerCase() === 'input' || event.target.tagName.toLowerCase() === 'textarea') return;
+            
+            // 处理空格键 - 将卡片直接移动到Archive列表（表示已掌握）
+            if (event.key === ' ' || event.code === 'Space') {
+                event.preventDefault();
+                
+                setBoards(prevBoards => {
+                    const newBoards = JSON.parse(JSON.stringify(prevBoards));
+                    const board = newBoards.find(b => b.id === activeBoardId);
+                    if (!board) return prevBoards;
+                    
+                    // 找到当前列表和Archive列表
+                    const sourceList = board.lists.find(l => l.id === selectedListId);
+                    const archiveList = board.lists.find(l => l.title === 'Archive');
+                    
+                    if (!sourceList || !archiveList) return prevBoards;
+                    
+                    // 找到要移动的卡片
+                    const cardIndex = sourceList.cards.findIndex(c => c.id === selectedCardId);
+                    if (cardIndex === -1) return prevBoards;
+                    
+                    // 移动卡片
+                    const [movedCard] = sourceList.cards.splice(cardIndex, 1);
+                    archiveList.cards.unshift(movedCard);
+                    
+                    // 选择下一张卡片
+                    let nextSelectedCardId = sourceList.cards.length > 0 
+                        ? sourceList.cards[Math.min(cardIndex, sourceList.cards.length - 1)].id 
+                        : null;
+                    
+                    setSelectedCardId(nextSelectedCardId);
+                    if(!nextSelectedCardId) setSelectedListId(null);
+                    
+                    // 增加进度计数
+                    incrementProgress();
+                    
+                    // 移动卡片后自动滚动到下一个卡片，并保持在视图中间
+                    setTimeout(() => {
+                        if (nextSelectedCardId) {
+                            const nextCardElement = document.querySelector(`[data-card-id="${nextSelectedCardId}"]`);
+                            if (nextCardElement) {
+                                nextCardElement.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'  // 使卡片保持在视图中间
+                                });
+                            }
+                        } else {
+                            // 如果没有下一个卡片，则滚动到列表顶部
+                            const sourceListElement = document.querySelector(`[data-list-id="${sourceList.id}"] .overflow-y-auto`);
+                            if (sourceListElement) {
+                                sourceListElement.scrollTop = 0;
+                            }
+                        }
+                    }, 10);
+                    
+                    return newBoards;
+                });
+                
+                return;
+            }
 
             // 处理上下方向键 - 在同一列表内切换卡片
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
