@@ -176,10 +176,11 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
 const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, handleDrop, dragOverList, setDragOverList }) => {
     return (
         <div 
-            className={`bg-gray-800 rounded-lg p-2 w-64 h-full flex flex-col flex-shrink-0 transition-colors ${dragOverList === list.id ? 'bg-gray-900' : ''}`}
+            className={`bg-gray-800 rounded-lg p-2 w-64 h-[calc(100vh-200px)] flex flex-col flex-shrink-0 transition-colors ${dragOverList === list.id ? 'bg-gray-900' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragOverList(list.id); }}
             onDragLeave={() => setDragOverList(null)}
             onDrop={(e) => { e.preventDefault(); handleDrop(e, list.id); setDragOverList(null); }}
+            data-list-id={list.id}
         >
             <div className="flex items-center justify-center p-2">
                 <h3 className="font-bold text-gray-300 cursor-pointer">{list.title}</h3>
@@ -187,7 +188,7 @@ const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, h
                     {list.cards.length}
                 </span>
             </div>
-            <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md`}>
+            <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md overflow-y-auto pr-2 hover-scrollbar`} style={{ maxHeight: 'calc(100vh - 260px)', scrollbarWidth: 'thin' }}>
                 {list.cards.map((card) => (
                     <div key={card.id} onClick={() => onCardClick(card.id, list.id)}>
                          <Card card={card} isSelected={card.id === selectedCardId} isArchived={isArchive} listId={list.id} handleDragStart={handleDragStart} />
@@ -712,18 +713,29 @@ const App = () => {
                     // 找到新选中的卡片元素
                     const cardElement = document.querySelector(`[data-card-id="${newCardId}"]`);
                     if (cardElement) {
-                        // 强制滚动 - 简单直接的方法
-                        if (event.key === 'ArrowDown') {
-                            // 向下滚动100px，确保下面的卡片可见
-                            window.scrollBy({
-                                top: 150,  // 滚动足够的距离以确保显示下一张卡片
-                                behavior: 'smooth'
-                            });
-                        } else if (event.key === 'ArrowUp') {
-                            // 向上滚动100px，确保上面的卡片可见
-                            window.scrollBy({
-                                top: -150, // 滚动足够的距离以确保显示上一张卡片
-                                behavior: 'smooth'
+                        // 获取卡片所在的列表容器(滚动区域) - 现在直接是滚动容器
+                        const scrollContainer = cardElement.closest('.flex-grow.min-h-\\[100px\\].space-y-2.overflow-y-auto');
+                        
+                        if (scrollContainer) {
+                            
+                            if (event.key === 'ArrowDown') {
+                                // 直接滚动到卡片位置，而不是增量滚动
+                                cardElement.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'
+                                });
+                            } else if (event.key === 'ArrowUp') {
+                                // 直接滚动到卡片位置，而不是增量滚动
+                                cardElement.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'
+                                });
+                            }
+                        } else {
+                            // 如果找不到列表容器，直接滚动到卡片元素
+                            cardElement.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center'
                             });
                         }
                     }
@@ -827,6 +839,25 @@ const App = () => {
                         // 一次性增加所有移动的卡片数量
                         incrementProgressByAmount(movedCardsCount);
                         
+                        // 智能刷词后自动滚动到下一个卡片，并保持在视图中间
+                        setTimeout(() => {
+                            if (nextSelectedCardId) {
+                                const nextCardElement = document.querySelector(`[data-card-id="${nextSelectedCardId}"]`);
+                                if (nextCardElement) {
+                                    nextCardElement.scrollIntoView({
+                                        behavior: 'smooth',
+                                        block: 'center'  // 使卡片保持在视图中间
+                                    });
+                                }
+                            } else {
+                                // 如果没有下一个卡片，则滚动到列表顶部
+                                const sourceListElement = document.querySelector(`[data-list-id="${sourceList.id}"] .overflow-y-auto`);
+                                if (sourceListElement) {
+                                    sourceListElement.scrollTop = 0;
+                                }
+                            }
+                        }, 10);
+                        
                         return newBoards;
                     }
                     
@@ -863,6 +894,25 @@ const App = () => {
                     if(!nextSelectedCardId) setSelectedListId(null);
                     
                     incrementProgress();
+                    
+                    // 移动卡片后自动滚动到下一个卡片，并保持在视图中间
+                    setTimeout(() => {
+                        if (nextSelectedCardId) {
+                            const nextCardElement = document.querySelector(`[data-card-id="${nextSelectedCardId}"]`);
+                            if (nextCardElement) {
+                                nextCardElement.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'  // 使卡片保持在视图中间
+                                });
+                            }
+                        } else {
+                            // 如果没有下一个卡片，则滚动到列表顶部
+                            const sourceListElement = document.querySelector(`[data-list-id="${sourceList.id}"] .overflow-y-auto`);
+                            if (sourceListElement) {
+                                sourceListElement.scrollTop = 0;
+                            }
+                        }
+                    }, 10);
                     return newBoards;
                 }
                 return prevBoards;
@@ -1289,9 +1339,9 @@ const App = () => {
                     </div>
                 </aside>
 
-                <main className="flex-grow flex flex-col overflow-x-auto">
+                <main className="flex-grow flex flex-col overflow-hidden">
                     {activeBoard ? (
-                        <div className="flex-grow p-4 flex space-x-4">
+                        <div className="flex-grow p-4 flex space-x-4 overflow-x-auto overflow-y-hidden">
                             {activeBoard.lists.map(list => (
                                 <div key={list.id} onClick={() => handleListTitleClick(list.id)} >
                                     <List list={list} onCardClick={handleCardClick} selectedCardId={selectedCardId} isArchive={list.title === 'Archive'} handleDragStart={handleDragStart} handleDrop={handleDrop} dragOverList={dragOverList} setDragOverList={setDragOverList}/>
