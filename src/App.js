@@ -707,57 +707,102 @@ const App = () => {
                 
                 let targetListIndex = -1;
             
-                if (board.lists[currentListIndex].title === 'Inbox') {
-                    if (event.key === 'ArrowLeft') {
-                        // 智能刷词：按左键时，当前卡片移到清单10（困难），当前卡片上方的所有卡片移到清单9（容易）
-                        targetListIndex = 1; // '10'
+                // 智能刷词逻辑：在任何列表中按左键时，当前卡片标记为困难，上方卡片标记为容易
+                if (event.key === 'ArrowLeft') {
+                    const sourceList = board.lists[currentListIndex];
+                    const sourceListTitle = sourceList.title;
+                    const cardIndex = sourceList.cards.findIndex(c => c.id === selectedCardId);
+                    
+                    if (cardIndex > -1) {
+                        event.preventDefault();
                         
-                        const sourceList = board.lists[currentListIndex];
-                        const hardList = board.lists[1]; // 清单10
-                        const easyList = board.lists[2]; // 清单9
-                        const cardIndex = sourceList.cards.findIndex(c => c.id === selectedCardId);
+                        let hardListIndex, easyListIndex;
                         
-                        if (cardIndex > -1) {
-                            event.preventDefault();
-                            
-                            // 1. 获取当前卡片和其上方的所有卡片
-                            const currentCard = sourceList.cards[cardIndex];
-                            const cardsAbove = sourceList.cards.slice(0, cardIndex);
-                            
-                            // 2. 从源列表中删除当前卡片和其上方的卡片
-                            sourceList.cards = sourceList.cards.slice(cardIndex + 1);
-                            
-                            // 3. 将当前卡片移到困难列表（清单10）
-                            hardList.cards.unshift(currentCard);
-                            
-                            // 4. 将上方卡片移到容易列表（清单9），保持原有顺序
-                            if (cardsAbove.length > 0) {
-                                // 反转顺序后添加，确保原顺序在目标列表中保持不变
-                                for (let i = cardsAbove.length - 1; i >= 0; i--) {
-                                    easyList.cards.unshift(cardsAbove[i]);
+                        // 确定目标列表索引
+                        if (sourceListTitle === 'Inbox') {
+                            // Inbox：左键->10，上方卡片->9
+                            hardListIndex = 1; // 清单10
+                            easyListIndex = 2; // 清单9
+                        } else if (sourceListTitle === '10') {
+                            // 列表10：左键->Inbox，上方卡片->9
+                            hardListIndex = 0; // Inbox
+                            easyListIndex = 2; // 清单9
+                        } else if (sourceListTitle === 'Archive') {
+                            // Archive不需要特殊处理，使用普通逻辑
+                            targetListIndex = currentListIndex - 1;
+                            return prevBoards; // 使用常规逻辑
+                        } else {
+                            // 获取当前列表的数字索引（从标题推断）
+                            const currentNum = parseInt(sourceListTitle);
+                            if (!isNaN(currentNum)) {
+                                // 对于1-9的列表，左键移到左侧列表(当前数字+1)，上方卡片移到右侧列表(当前数字-1)
+                                hardListIndex = board.lists.findIndex(l => l.title === String(currentNum + 1));
+                                easyListIndex = board.lists.findIndex(l => l.title === String(currentNum - 1));
+                                
+                                // 对于列表1的特殊处理，右侧是Archive
+                                if (sourceListTitle === '1') {
+                                    easyListIndex = board.lists.findIndex(l => l.title === 'Archive');
                                 }
+                            } else {
+                                // 如果不是数字标题，使用常规逻辑
+                                targetListIndex = currentListIndex - 1;
+                                return prevBoards;
                             }
-                            
-                            // 5. 选择源列表中的下一张卡片
-                            let nextSelectedCardId = sourceList.cards.length > 0 
-                                ? sourceList.cards[0].id 
-                                : null;
-                            
-                            setSelectedCardId(nextSelectedCardId);
-                            if(!nextSelectedCardId) setSelectedListId(null);
-                            
-                            // 增加进度，按照移动的卡片总数
-                            const movedCardsCount = 1 + cardsAbove.length;
-                            // 一次性增加所有移动的卡片数量
-                            incrementProgressByAmount(movedCardsCount);
-                            
-                            return newBoards;
                         }
+                        
+                        // 确保找到了有效的列表索引
+                        if (hardListIndex === -1 || easyListIndex === -1) {
+                            // 找不到对应列表，回退到常规逻辑
+                            targetListIndex = currentListIndex - 1;
+                            return prevBoards;
+                        }
+                        
+                        const hardList = board.lists[hardListIndex];
+                        const easyList = board.lists[easyListIndex];
+                        
+                        // 1. 获取当前卡片和其上方的所有卡片
+                        const currentCard = sourceList.cards[cardIndex];
+                        const cardsAbove = sourceList.cards.slice(0, cardIndex);
+                        
+                        // 2. 从源列表中删除当前卡片和其上方的卡片
+                        sourceList.cards = sourceList.cards.slice(cardIndex + 1);
+                        
+                        // 3. 将当前卡片移到困难列表
+                        hardList.cards.unshift(currentCard);
+                        
+                        // 4. 将上方卡片移到容易列表，保持原有顺序
+                        if (cardsAbove.length > 0) {
+                            // 反转顺序后添加，确保原顺序在目标列表中保持不变
+                            for (let i = cardsAbove.length - 1; i >= 0; i--) {
+                                easyList.cards.unshift(cardsAbove[i]);
+                            }
+                        }
+                        
+                        // 5. 选择源列表中的下一张卡片
+                        let nextSelectedCardId = sourceList.cards.length > 0 
+                            ? sourceList.cards[0].id 
+                            : null;
+                        
+                        setSelectedCardId(nextSelectedCardId);
+                        if(!nextSelectedCardId) setSelectedListId(null);
+                        
+                        // 增加进度，按照移动的卡片总数
+                        const movedCardsCount = 1 + cardsAbove.length;
+                        // 一次性增加所有移动的卡片数量
+                        incrementProgressByAmount(movedCardsCount);
+                        
+                        return newBoards;
                     }
-                    else if (event.key === 'ArrowRight') targetListIndex = 2; // '9'
-                } else {
-                    if (event.key === 'ArrowLeft') targetListIndex = currentListIndex - 1; 
-                    else if (event.key === 'ArrowRight') targetListIndex = currentListIndex + 1; 
+                    
+                    // 如果没有找到卡片或其他条件不满足，使用默认行为
+                    targetListIndex = currentListIndex - 1;
+                } else if (event.key === 'ArrowRight') {
+                    // 右键保持原有逻辑
+                    if (board.lists[currentListIndex].title === 'Inbox') {
+                        targetListIndex = 2; // 清单9
+                    } else {
+                        targetListIndex = currentListIndex + 1;
+                    }
                 }
 
                 if (targetListIndex === -1 || targetListIndex < 0 || targetListIndex >= board.lists.length) {
