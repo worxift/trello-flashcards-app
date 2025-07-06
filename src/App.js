@@ -176,7 +176,7 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
 const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, handleDrop, dragOverList, setDragOverList }) => {
     return (
         <div 
-            className={`bg-gray-800 rounded-lg p-2 w-64 h-[calc(100vh-200px)] flex flex-col flex-shrink-0 transition-colors ${dragOverList === list.id ? 'bg-gray-900' : ''}`}
+            className={`bg-gray-800 rounded-lg p-2 w-64 h-[calc(100vh-160px)] flex flex-col flex-shrink-0 transition-colors ${dragOverList === list.id ? 'bg-gray-900' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragOverList(list.id); }}
             onDragLeave={() => setDragOverList(null)}
             onDrop={(e) => { e.preventDefault(); handleDrop(e, list.id); setDragOverList(null); }}
@@ -188,7 +188,7 @@ const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, h
                     {list.cards.length}
                 </span>
             </div>
-            <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md overflow-y-auto pr-2 hover-scrollbar`} style={{ maxHeight: 'calc(100vh - 260px)', scrollbarWidth: 'thin' }}>
+            <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md overflow-y-auto pr-2 hover-scrollbar`} style={{ maxHeight: 'calc(100vh - 220px)', scrollbarWidth: 'thin' }}>
                 {list.cards.map((card) => (
                     <div key={card.id} onClick={() => onCardClick(card.id, list.id)}>
                          <Card card={card} isSelected={card.id === selectedCardId} isArchived={isArchive} listId={list.id} handleDragStart={handleDragStart} />
@@ -1266,7 +1266,7 @@ const App = () => {
             <NewBoardModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreate={handleCreateBoard} />
             <EditCardModal isOpen={isEditCardModalOpen} card={cardToEdit} onClose={() => setIsEditCardModalOpen(false)} onSave={handleSaveCard} />
 
-            <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 p-2 flex items-stretch gap-4 z-20">
+            <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 p-1 flex items-stretch gap-4 z-20">
                 <div className="flex-1">
                     <DailyGoalProgressBar progress={dailyProgress.count} goal={dailyGoal} onGoalChange={setDailyGoal} />
                 </div>
@@ -1341,7 +1341,7 @@ const App = () => {
 
                 <main className="flex-grow flex flex-col overflow-hidden">
                     {activeBoard ? (
-                        <div className="flex-grow p-4 flex space-x-4 overflow-x-auto overflow-y-hidden">
+                        <div className="flex-grow p-2 flex space-x-4 overflow-x-auto overflow-y-hidden">
                             {activeBoard.lists.map(list => (
                                 <div key={list.id} onClick={() => handleListTitleClick(list.id)} >
                                     <List list={list} onCardClick={handleCardClick} selectedCardId={selectedCardId} isArchive={list.title === 'Archive'} handleDragStart={handleDragStart} handleDrop={handleDrop} dragOverList={dragOverList} setDragOverList={setDragOverList}/>
