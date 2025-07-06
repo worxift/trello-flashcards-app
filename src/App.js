@@ -145,7 +145,13 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
 
     if (isArchived) {
         return (
-            <div draggable="true" onDragStart={onDragStart} onClick={() => setIsExpanded(!isExpanded)} className={`p-2 rounded-md bg-gray-600 text-sm cursor-pointer ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+            <div 
+                draggable="true" 
+                onDragStart={onDragStart} 
+                onClick={() => setIsExpanded(!isExpanded)} 
+                className={`p-2 rounded-md bg-gray-600 text-sm cursor-pointer ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                data-card-id={card.id}
+            >
                 {isExpanded ? (
                     <><p className="font-semibold">{card.word}</p><p className="text-xs text-gray-400 mt-1">{card.definition}</p></>
                 ) : (
@@ -156,7 +162,12 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
     }
 
     return (
-        <div draggable="true" onDragStart={onDragStart} className={`p-3 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors cursor-grab ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+        <div 
+            draggable="true" 
+            onDragStart={onDragStart} 
+            className={`p-3 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors cursor-grab ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+            data-card-id={card.id}
+        >
             <p className="font-semibold text-base text-gray-100">{card.word}</p>
         </div>
     );
@@ -692,7 +703,38 @@ const App = () => {
                     newCardIndex = (currentCardIndex + 1) % cards.length;
                 }
                 
-                setSelectedCardId(cards[newCardIndex].id);
+                const newCardId = cards[newCardIndex].id;
+                setSelectedCardId(newCardId);
+                
+                // 添加自动滚动功能
+                // 设置延迟，确保DOM已更新
+                setTimeout(() => {
+                    // 找到新选中的卡片元素
+                    const cardElement = document.querySelector(`[data-card-id="${newCardId}"]`);
+                    if (cardElement) {
+                        // 检查卡片是否在视窗底部
+                        const rect = cardElement.getBoundingClientRect();
+                        const viewportHeight = window.innerHeight;
+                        const threshold = viewportHeight * 0.7; // 如果卡片在视窗的底部30%区域内
+                        
+                        if (rect.bottom > threshold) {
+                            // 计算滚动的位置，使当前卡片位于页面的50%位置
+                            const scrollOffset = rect.top - (viewportHeight * 0.5) + (rect.height / 2);
+                            window.scrollBy({
+                                top: scrollOffset,
+                                behavior: 'smooth'
+                            });
+                        } else if (rect.top < viewportHeight * 0.3) {
+                            // 如果卡片在视窗上方30%区域，也滚动使其居中
+                            const scrollOffset = rect.top - (viewportHeight * 0.5) + (rect.height / 2);
+                            window.scrollBy({
+                                top: scrollOffset,
+                                behavior: 'smooth'
+                            });
+                        }
+                    }
+                }, 10);
+                
                 return;
             }
             
