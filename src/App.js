@@ -712,23 +712,17 @@ const App = () => {
                     // 找到新选中的卡片元素
                     const cardElement = document.querySelector(`[data-card-id="${newCardId}"]`);
                     if (cardElement) {
-                        // 检查卡片是否在视窗底部
-                        const rect = cardElement.getBoundingClientRect();
-                        const viewportHeight = window.innerHeight;
-                        const threshold = viewportHeight * 0.7; // 如果卡片在视窗的底部30%区域内
-                        
-                        if (rect.bottom > threshold) {
-                            // 计算滚动的位置，使当前卡片位于页面的50%位置
-                            const scrollOffset = rect.top - (viewportHeight * 0.5) + (rect.height / 2);
+                        // 强制滚动 - 简单直接的方法
+                        if (event.key === 'ArrowDown') {
+                            // 向下滚动100px，确保下面的卡片可见
                             window.scrollBy({
-                                top: scrollOffset,
+                                top: 150,  // 滚动足够的距离以确保显示下一张卡片
                                 behavior: 'smooth'
                             });
-                        } else if (rect.top < viewportHeight * 0.3) {
-                            // 如果卡片在视窗上方30%区域，也滚动使其居中
-                            const scrollOffset = rect.top - (viewportHeight * 0.5) + (rect.height / 2);
+                        } else if (event.key === 'ArrowUp') {
+                            // 向上滚动100px，确保上面的卡片可见
                             window.scrollBy({
-                                top: scrollOffset,
+                                top: -150, // 滚动足够的距离以确保显示上一张卡片
                                 behavior: 'smooth'
                             });
                         }
