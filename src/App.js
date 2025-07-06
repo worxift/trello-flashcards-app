@@ -105,7 +105,7 @@ const NewBoardModal = ({ isOpen, onClose, onCreate }) => {
 };
 
 const DefinitionTooltip = ({ definition, selectedCard, onEdit, onDelete }) => (
-    <div className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-6 w-full max-w-sm h-auto min-h-24 text-gray-300 z-30 flex justify-center items-center">
+    <div className="fixed bottom-1 right-4 bg-gray-800 border border-gray-700 shadow-2xl rounded-lg p-4 w-full max-w-sm h-auto min-h-20 text-gray-300 z-30 flex justify-center items-center">
         <p className="text-center text-xl font-medium text-blue-300">{definition || '选中一张卡片以查看释义'}</p>
         
         {/* 低调的按钮区域，定位在右下角，默认半透明 */}
@@ -176,7 +176,7 @@ const Card = ({ card, isSelected, isArchived, listId, handleDragStart }) => {
 const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, handleDrop, dragOverList, setDragOverList }) => {
     return (
         <div 
-            className={`bg-gray-800 rounded-lg p-2 w-64 h-[calc(100vh-160px)] flex flex-col flex-shrink-0 transition-colors ${dragOverList === list.id ? 'bg-gray-900' : ''}`}
+            className={`bg-gray-800 rounded-lg p-2 w-64 h-[calc(100vh-120px)] flex flex-col flex-shrink-0 transition-colors ${dragOverList === list.id ? 'bg-gray-900' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragOverList(list.id); }}
             onDragLeave={() => setDragOverList(null)}
             onDrop={(e) => { e.preventDefault(); handleDrop(e, list.id); setDragOverList(null); }}
@@ -188,7 +188,7 @@ const List = ({ list, onCardClick, selectedCardId, isArchive, handleDragStart, h
                     {list.cards.length}
                 </span>
             </div>
-            <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md overflow-y-auto pr-2 hover-scrollbar`} style={{ maxHeight: 'calc(100vh - 220px)', scrollbarWidth: 'thin' }}>
+            <div className={`flex-grow min-h-[100px] space-y-2 p-1 rounded-md overflow-y-auto pr-2 hover-scrollbar`} style={{ maxHeight: 'calc(100vh - 180px)', scrollbarWidth: 'thin' }}>
                 {list.cards.map((card) => (
                     <div key={card.id} onClick={() => onCardClick(card.id, list.id)}>
                          <Card card={card} isSelected={card.id === selectedCardId} isArchived={isArchive} listId={list.id} handleDragStart={handleDragStart} />
@@ -1277,7 +1277,7 @@ const App = () => {
 
             <div className="flex flex-grow overflow-hidden">
                 <aside className="w-64 bg-gray-800/50 p-4 flex-shrink-0 flex flex-col border-r border-gray-700">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-center mb-2">
                         <h1 className="text-xl font-bold">我的看板</h1>
                         <button 
                             onClick={toggleStorageType} 
@@ -1341,7 +1341,7 @@ const App = () => {
 
                 <main className="flex-grow flex flex-col overflow-hidden">
                     {activeBoard ? (
-                        <div className="flex-grow p-2 flex space-x-4 overflow-x-auto overflow-y-hidden">
+                        <div className="flex-grow p-1 pb-0 flex space-x-4 overflow-x-auto overflow-y-hidden">
                             {activeBoard.lists.map(list => (
                                 <div key={list.id} onClick={() => handleListTitleClick(list.id)} >
                                     <List list={list} onCardClick={handleCardClick} selectedCardId={selectedCardId} isArchive={list.title === 'Archive'} handleDragStart={handleDragStart} handleDrop={handleDrop} dragOverList={dragOverList} setDragOverList={setDragOverList}/>
